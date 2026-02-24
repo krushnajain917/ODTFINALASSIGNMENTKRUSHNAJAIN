@@ -1,0 +1,183 @@
+from machine import Pin, PWM
+import time
+import neopixel
+import random
+
+# === Setup ===
+servo = PWM(Pin(19), freq=50)
+np = neopixel.NeoPixel(Pin(21), 9)
+button = Pin(14, Pin.IN, Pin.PULL_UP)
+buzzer = PWM(Pin(27))
+
+positions = [35,45,55,65,75,85,95,105,115]
+
+score = 0
+miss = 0
+delay = 0.11       # base sweep speed
+
+press_count = 0
+max_presses = 15
+
+# ================= INITIALIZING ANIMATION (BLUE) =================
+for loop in range(3):  # repeat 3 times
+    # Forward loop
+    for i in range(9):
+        for j in range(9):
+            np[j] = (0,0,0)
+        np[i] = (0,0,200)  # blue
+        np.write()
+        time.sleep(0.08)
+    # Backward loop
+    for i in range(8,-1,-1):
+        for j in range(9):
+            np[j] = (0,0,0)
+        np[i] = (0,0,200)
+        np.write()
+        time.sleep(0.08)
+
+# Clear LEDs before game starts
+for i in range(9):
+    np[i] = (0,0,0)
+np.write()
+
+print("GAME START!")
+
+# ================= GAME LOOP =================
+while press_count < max_presses:
+
+    target = random.randint(0,8)
+
+    # -------- FORWARD SWEEP --------
+    for i in range(9):
+
+        if press_count >= max_presses:
+            break
+
+        servo.duty(positions[i])
+
+        # Clear all LEDs
+        for j in range(9):
+            np[j] = (0,0,0)
+
+        # Target red
+        np[target] = (200,0,0)
+        # Radar blue
+        np[i] = (0,0,200)
+
+        # Yellow hit zone
+        if i == target:
+            np[i] = (200,200,0)
+        np.write()
+
+        # Check button presses in hit window
+        for k in range(9):   # ~90ms window
+            if press_count >= max_presses:
+                break
+
+            if button.value() == 0:
+                press_count += 1
+
+                if i == target:
+                    score += 1
+                    print("HIT! Score:", score)
+                else:
+                    miss += 1
+                    print("MISS! Total misses:", miss)
+
+                # Buzzer beep
+                buzzer.freq(1000)
+                buzzer.duty(512)
+                time.sleep(0.06)
+                buzzer.duty(0)
+
+                if delay > 0.045:
+                    delay -= 0.007
+
+                time.sleep(0.02)  # small debounce
+                break
+
+            time.sleep(0.01)
+
+        time.sleep(delay)
+
+    # -------- BACKWARD SWEEP --------
+    for i in range(8,-1,-1):
+
+        if press_count >= max_presses:
+            break
+
+        servo.duty(positions[i])
+
+        # Clear all LEDs
+        for j in range(9):
+            np[j] = (0,0,0)
+
+        # Target red
+        np[target] = (200,0,0)
+        # Radar blue
+        np[i] = (0,0,200)
+
+        # Yellow hit zone
+        if i == target:
+            np[i] = (200,200,0)
+        np.write()
+
+        # Check button presses in hit window
+        for k in range(9):
+            if press_count >= max_presses:
+                break
+
+            if button.value() == 0:
+                press_count += 1
+
+                if i == target:
+                    score += 1
+                    print("HIT! Score:", score)
+                else:
+                    miss += 1
+                    print("MISS! Total misses:", miss)
+
+                buzzer.freq(1000)
+                buzzer.duty(512)
+                time.sleep(0.06)
+                buzzer.duty(0)
+
+                if delay > 0.045:
+                    delay -= 0.007
+
+                time.sleep(0.02)
+                break
+
+            time.sleep(0.01)
+
+        time.sleep(delay)
+
+# ================= GAME OVER =================
+print("GAME OVER")
+print("Final Score (HITS):", score)
+print("Total Misses:", miss)
+print("Total Button Presses:", press_count)
+
+# ================= END ANIMATION (RED) =================
+for loop in range(3):  # repeat 3 times
+    # Forward loop
+    for i in range(9):
+        for j in range(9):
+            np[j] = (0,0,0)
+        np[i] = (200,0,0)  # red
+        np.write()
+        time.sleep(0.08)
+    # Backward loop
+    for i in range(8,-1,-1):
+        for j in range(9):
+            np[j] = (0,0,0)
+        np[i] = (200,0,0)
+        np.write()
+        time.sleep(0.08)
+
+# Turn everything off
+for i in range(9):
+    np[i] = (0,0,0)
+np.write()
+servo.duty(0)
+buzzer.duty(0)
